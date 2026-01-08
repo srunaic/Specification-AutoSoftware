@@ -38,16 +38,29 @@ def ai_generate():
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name)
         
-        system_prompt = """You are a professional Game System Designer. 
-        Output ONLY a valid JSON object matching this schema:
-        {
-          "type": "system_design",
-          "title": "Clear Title",
-          "summary": "Professional summary",
-          "rules": { "max_level": number, "success_rate": [{"level": number, "rate": number}] },
-          "costs": { "gold": number[], "material": string[] },
-          "exceptions": string[]
-        }"""
+        template_type = data.get('template_type', 'system_design')
+        
+        # Adjust prompt schema based on template type
+        if template_type == 'event_planning':
+            schema = """{
+              "type": "event_planning",
+              "title": "Event Title",
+              "summary": "Event summary",
+              "rules": { "start_level": number, "end_date": "string" },
+              "costs": { "reward_items": string[] },
+              "exceptions": string[]
+            }"""
+        else:
+            schema = """{
+              "type": "system_design",
+              "title": "System Title",
+              "summary": "System summary",
+              "rules": { "max_level": number, "success_rate": [{"level": number, "rate": number}] },
+              "costs": { "gold": number[], "material": string[] },
+              "exceptions": string[]
+            }"""
+
+        system_prompt = f"You are a professional Game System Designer. Output ONLY a valid JSON object matching this schema: {schema}"
         
         response = model.generate_content(f"{system_prompt}\n\nUser Request: {prompt}")
         
@@ -84,10 +97,13 @@ def generate():
     os.makedirs(data_dir, exist_ok=True)
 
     try:
-        # 2. Generate Markdown (Root)
+        # 2. Identify Template
+        template_file = data.get('template_file', 'system_design.md.j2')
+        
+        # 3. Generate Markdown (Root)
         md_gen = MarkdownGenerator(template_folder)
         md_path = os.path.join(base_output_dir, f"{title_sanitized}_Spec.md")
-        md_gen.generate(data, 'system_design.md.j2', md_path)
+        md_gen.generate(data, template_file, md_path)
 
         # 3. Generate Word Document (Root)
         from core.generators import DocxGenerator

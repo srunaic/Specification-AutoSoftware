@@ -48,6 +48,12 @@ function App() {
     const [apiKey, setApiKey] = useState('');
     const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
     const [customModel, setCustomModel] = useState('');
+    const [selectedTemplate, setSelectedTemplate] = useState('system_design.md.j2');
+
+    const TEMPLATES = [
+        { id: 'system_design.md.j2', name: '시스템 기획 (표준)', type: 'system_design' },
+        { id: 'event_planning.md.j2', name: '이벤트 기획 (퀘스트)', type: 'event_planning' }
+    ];
 
     const GEMINI_MODELS = [
         { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (추천/안정)' },
@@ -73,7 +79,8 @@ function App() {
                 body: JSON.stringify({
                     prompt: aiPrompt,
                     model: finalModel,
-                    api_key: apiKey
+                    api_key: apiKey,
+                    template_type: TEMPLATES.find(t => t.id === selectedTemplate)?.type || 'system_design'
                 })
             });
 
@@ -90,6 +97,22 @@ function App() {
             alert(`AI 연동 실패 (Server Proxy)\n------------------\n${err.message}`);
         } finally {
             setIsAiLoading(false);
+        }
+    };
+
+    const handleGenerate = async () => {
+        try {
+            // Include target template in the data payload
+            const payload = { ...data, template_file: selectedTemplate };
+            const response = await fetch('/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            alert(result.message);
+        } catch (error) {
+            alert("연결 실패: 서버(main.py)가 실행 중인지 확인하세요.");
         }
     };
 
@@ -127,6 +150,26 @@ function App() {
                                 {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
                             </select>
                         </div>
+                        <div>
+                            <label style={{ fontSize: '12px', opacity: 0.7 }}>문서 템플릿</label>
+                            <select
+                                value={selectedTemplate}
+                                onChange={(e) => setSelectedTemplate(e.target.value)}
+                                style={{ width: '100%', marginTop: '4px' }}
+                            >
+                                {TEMPLATES.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                            </select>
+                        </div>
+                        {selectedModel === 'custom' && (
+                            <div style={{ gridColumn: 'span 2' }}>
+                                <input
+                                    value={customModel}
+                                    onChange={(e) => setCustomModel(e.target.value)}
+                                    placeholder="모델 ID 입력 (예: gemini-2.0-flash)"
+                                    style={{ width: '100%' }}
+                                />
+                            </div>
+                        )}
                     </div>
 
                     <input
