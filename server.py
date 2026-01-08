@@ -26,28 +26,47 @@ def serve_static(path):
 @app.route('/api/generate', methods=['POST'])
 def generate():
     data = request.json
-    output_dir = 'outputs'
-    os.makedirs(output_dir, exist_ok=True)
+    from datetime import datetime
+    
+    # 1. Structure Folders: outputs/YYYY-MM-DD/Title/
+    date_str = datetime.now().strftime('%Y-%m-%d')
+    title_sanitized = data.get('title', 'Untitled').replace(' ', '_')
+    base_output_dir = os.path.join('outputs', date_str, title_sanitized)
+    data_dir = os.path.join(base_output_dir, 'data_tables')
+    
+    os.makedirs(base_output_dir, exist_ok=True)
+    os.makedirs(data_dir, exist_ok=True)
 
     try:
-        # Generate Markdown
+        # 2. Generate Markdown (Root)
         md_gen = MarkdownGenerator(template_folder)
-        md_path = os.path.join(output_dir, 'design_doc.md')
+        md_path = os.path.join(base_output_dir, f"{title_sanitized}_Spec.md")
         md_gen.generate(data, 'system_design.md.j2', md_path)
 
-        # Generate CSV
-        csv_gen = CSVGenerator()
-        csv_gen.generate(data, output_dir)
+        # 3. Generate Word Document (Root)
+        from core.generators import DocxGenerator
+        docx_gen = DocxGenerator()
+        docx_path = os.path.join(base_output_dir, f"{title_sanitized}_Spec.docx")
+        docx_gen.generate(data, docx_path)
 
-        # Generate Excel
+        # 4. Generate CSV (Data Folder)
+        csv_gen = CSVGenerator()
+        csv_gen.generate(data, data_dir)
+
+        # 5. Generate Excel (Data Folder)
         excel_gen = ExcelGenerator()
-        excel_path = os.path.join(output_dir, 'design_doc.xlsx')
+        excel_path = os.path.join(data_dir, f"{title_sanitized}_Data.xlsx")
         excel_gen.generate(data, excel_path)
 
-        # Open the output folder
-        os.startfile(os.path.abspath(output_dir))
+        # 6. Save Source JSON (Root)
+        import json
+        with open(os.path.join(base_output_dir, 'source_data.json'), 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, ensure_ascii=False)
 
-        return jsonify({"status": "success", "message": "Files generated and folder opened!"})
+        # Open the specific output folder
+        os.startfile(os.path.abspath(base_output_dir))
+
+        return jsonify({"status": "success", "message": f"'{title_sanitized}' 문서 생성이 완료되었습니다!"})
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

@@ -81,3 +81,60 @@ class ExcelGenerator:
 
         wb.save(output_path)
         return output_path
+
+from docx import Document
+from docx.shared import Inches, Pt
+
+class DocxGenerator:
+    def generate(self, data, output_path):
+        doc = Document()
+        
+        # Title
+        doc.add_heading(data.get('title', 'Design Document'), 0)
+        
+        # Summary
+        doc.add_heading('Summary', level=1)
+        doc.add_paragraph(data.get('summary', ''))
+        
+        # Rules / Tables
+        if 'rules' in data:
+            doc.add_heading('System Rules', level=1)
+            rules = data['rules']
+            
+            # Max Level
+            p = doc.add_paragraph()
+            p.add_run('Max Level: ').bold = True
+            p.add_run(str(rules.get('max_level', 'N/A')))
+            
+            # Success Rate Table
+            if 'success_rate' in rules:
+                doc.add_heading('Success Rate Table', level=2)
+                rates = rules['success_rate']
+                table = doc.add_table(rows=1, cols=2)
+                table.style = 'Table Grid'
+                hdr_cells = table.rows[0].cells
+                hdr_cells[0].text = 'Level'
+                hdr_cells[1].text = 'Success Rate'
+                
+                for item in rates:
+                    row_cells = table.add_row().cells
+                    row_cells[0].text = str(item.get('level', ''))
+                    row_cells[1].text = str(item.get('rate', ''))
+                    
+        # Costs
+        if 'costs' in data:
+            doc.add_heading('Costs', level=1)
+            costs = data['costs']
+            for key, val in costs.items():
+                p = doc.add_paragraph(style='List Bullet')
+                p.add_run(f"{key}: ").bold = True
+                p.add_run(str(val))
+                
+        # Exceptions
+        if 'exceptions' in data:
+            doc.add_heading('Exceptions', level=1)
+            for exc in data['exceptions']:
+                doc.add_paragraph(exc, style='List Bullet')
+                
+        doc.save(output_path)
+        return output_path
