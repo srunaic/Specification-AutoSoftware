@@ -43,25 +43,41 @@ function App() {
         setData({ ...data, rules: { ...data.rules, success_rate: newRates } });
     };
 
-    const downloadJSON = () => {
+    const handleExport = async () => {
+        // 1. Browser JSON Download (Backup)
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'design_data.json';
+        a.download = `${data.title.replace(/\s/g, '_')}_data.json`;
         a.click();
         URL.revokeObjectURL(url);
+
+        // 2. Attempt Local Generation (EXE Mode)
+        try {
+            const response = await fetch('http://127.0.0.1:5000/api/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            const result = await response.json();
+            if (result.status === 'success') {
+                alert("🚀 로컬 문서 생성이 완료되었습니다!\nWord, Excel, Markdown 파일이 생성된 폴더가 열립니다.");
+            }
+        } catch (err) {
+            console.log("Web mode: Local server not detected.");
+            alert("JSON 파일이 다운로드되었습니다. (웹 버전에서는 로컬 문서 자동 생성이 제한됩니다.)");
+        }
     };
 
     const saveToSupabase = async () => {
-        // Placeholder for Supabase save logic
         alert("Supabase integration is configured but requires an anon key/table to function.");
     };
 
     return (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '32px' }}>
             <div className="glass-card">
-                <h1>Spec-Auto Editor</h1>
+                <h1>Spec-Auto Editor <span style={{ fontSize: '14px', color: '#60a5fa', verticalAlign: 'middle' }}>v2.0</span></h1>
 
                 <label>제목</label>
                 <input
@@ -86,38 +102,30 @@ function App() {
 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                     <h4>성공 확률 테이블</h4>
-                    <button onClick={addSuccessRate} style={{ padding: '4px 8px' }}><Plus size={16} /></button>
-                </div>
-
-                {data.rules.success_rate.map((row, i) => (
-                    <div key={i} className="table-row">
-                        <input type="number" placeholder="Lv" value={row.level} onChange={(e) => updateSuccessRate(i, 'level', e.target.value)} />
-                        <input type="number" step="0.1" placeholder="Rate" value={row.rate} onChange={(e) => updateSuccessRate(i, 'rate', e.target.value)} />
-                        <button className="secondary-button" onClick={() => removeSuccessRate(i)}><Trash2 size={16} color="#ef4444" /></button>
-                    </div>
-                ))}
-
-                <div style={{ marginTop: '24px', display: 'flex', gap: '8px' }}>
-                    <button onClick={downloadJSON} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
-                        <Download size={18} /> JSON 다운로드
-                    </button>
-                    <button onClick={saveToSupabase} className="secondary-button" style={{ flex: 1 }}>
-                        ☁️ Cloud 저장
+                    <button onClick={addSuccessRate} className="secondary-button" style={{ padding: '4px 12px' }}>
+                        <Plus size={16} style={{ marginRight: '4px' }} /> 레벨 추가
                     </button>
                 </div>
 
-                <div style={{ marginTop: '12px' }}>
-                    <button onClick={() => {
-                        fetch('http://127.0.0.1:5000/api/generate', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(data)
-                        })
-                            .then(res => res.json())
-                            .then(res => alert(res.message))
-                            .catch(err => alert("로컬 서버가 실행 중이지 않습니다. (웹 버전에서는 작동하지 않음)"));
-                    }} style={{ width: '100%', background: 'rgba(59, 130, 246, 0.2)', border: '1px solid #3b82f6' }}>
-                        🚀 PC에서 바로 변환 (EXE 전용)
+                <div style={{ maxHeight: '300px', overflowY: 'auto', paddingRight: '10px' }}>
+                    {data.rules.success_rate.map((row, i) => (
+                        <div key={i} className="table-row">
+                            <input type="number" placeholder="Lv" value={row.level} onChange={(e) => updateSuccessRate(i, 'level', e.target.value)} />
+                            <input type="number" step="0.1" placeholder="Rate" value={row.rate} onChange={(e) => updateSuccessRate(i, 'rate', e.target.value)} />
+                            <button className="secondary-button" onClick={() => removeSuccessRate(i)} style={{ border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                                <Trash2 size={16} color="#ef4444" />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+
+                <div style={{ marginTop: '32px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <button onClick={handleExport} style={{ padding: '16px', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '10px', justifyContent: 'center', boxShadow: '0 4px 14px 0 rgba(59, 130, 246, 0.39)' }}>
+                        <Download size={22} /> 문서 자동 생성 및 저장 (All-in-One)
+                    </button>
+
+                    <button onClick={saveToSupabase} className="secondary-button" style={{ display: 'flex', alignItems: 'center', gap: '8px', justifyContent: 'center' }}>
+                        ☁️ Supabase Cloud 동기화
                     </button>
                 </div>
             </div>
