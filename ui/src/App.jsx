@@ -105,6 +105,21 @@ function App() {
                         ☁️ Cloud 저장
                     </button>
                 </div>
+
+                <div style={{ marginTop: '12px' }}>
+                    <button onClick={() => {
+                        fetch('http://127.0.0.1:5000/api/generate', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(data)
+                        })
+                            .then(res => res.json())
+                            .then(res => alert(res.message))
+                            .catch(err => alert("로컬 서버가 실행 중이지 않습니다. (웹 버전에서는 작동하지 않음)"));
+                    }} style={{ width: '100%', background: 'rgba(59, 130, 246, 0.2)', border: '1px solid #3b82f6' }}>
+                        🚀 PC에서 바로 변환 (EXE 전용)
+                    </button>
+                </div>
             </div>
 
             <div className="glass-card">
