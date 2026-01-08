@@ -13,15 +13,18 @@ else:
     template_folder = 'templates'
     static_folder = 'ui/dist'
 
-app = Flask(__name__, static_folder=static_folder, template_folder=template_folder)
+# static_url_path='' ensures the static folder is served at the root URL
+app = Flask(__name__, static_folder=static_folder, static_url_path='')
 
 @app.route('/')
-def serve_index():
+def index():
     return send_from_directory(app.static_folder, 'index.html')
 
-@app.route('/<path:path>')
-def serve_static(path):
-    return send_from_directory(app.static_folder, path)
+# Flask automatically serves files from static_folder if static_url_path is set.
+# No need for manual /<path:path> routes in most cases, but we'll add a catch-all for SPA.
+@app.errorhandler(404)
+def page_not_found(e):
+    return send_from_directory(app.static_folder, 'index.html')
 
 @app.route('/api/generate', methods=['POST'])
 def generate():
