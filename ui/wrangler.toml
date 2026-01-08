@@ -2,7 +2,7 @@ name = "specauto-ai"
 compatibility_date = "2024-04-03"
 
 [assets]
-directory = "./ui/dist"
+directory = "./dist"
 
 # Note: The backend (server.py) is a Flask app and currently runs locally.
 # To connect to it from a web-hosted UI, you would need to host server.py 
