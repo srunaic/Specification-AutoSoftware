@@ -1,9 +1,13 @@
 import os
 import sys
 import webbrowser
+import json
 from threading import Timer
+from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
-from core.generators import MarkdownGenerator, CSVGenerator, ExcelGenerator
+from flask_cors import CORS
+import google.generativeai as genai
+from core.generators import MarkdownGenerator, CSVGenerator, ExcelGenerator, DocxGenerator
 
 # Determine if running as a script or frozen EXE
 if getattr(sys, 'frozen', False):
@@ -13,12 +17,51 @@ else:
     template_folder = 'templates'
     static_folder = 'ui/dist'
 
-# static_url_path='' ensures the static folder is served at the root URL
 app = Flask(__name__, static_folder=static_folder, static_url_path='')
+CORS(app) # Enable CORS for development
 
 @app.route('/')
 def index():
     return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/api/ai/generate', methods=['POST'])
+def ai_generate():
+    data = request.json
+    api_key = data.get('api_key') or os.environ.get('GEMINI_API_KEY')
+    model_name = data.get('model', 'gemini-1.5-flash')
+    prompt = data.get('prompt')
+
+    if not api_key:
+        return jsonify({"status": "error", "message": "API Key가 필요합니다."}), 400
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(model_name)
+        
+        system_prompt = """You are a professional Game System Designer. 
+        Output ONLY a valid JSON object matching this schema:
+        {
+          "type": "system_design",
+          "title": "Clear Title",
+          "summary": "Professional summary",
+          "rules": { "max_level": number, "success_rate": [{"level": number, "rate": number}] },
+          "costs": { "gold": number[], "material": string[] },
+          "exceptions": string[]
+        }"""
+        
+        response = model.generate_content(f"{system_prompt}\n\nUser Request: {prompt}")
+        
+        # Extract JSON from response
+        text = response.text
+        cleaned_json = text.replace('```json', '').replace('```', '').strip()
+        
+        return jsonify({
+            "status": "success", 
+            "data": json.loads(cleaned_json),
+            "model_used": model_name
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # Flask automatically serves files from static_folder if static_url_path is set.
 # No need for manual /<path:path> routes in most cases, but we'll add a catch-all for SPA.

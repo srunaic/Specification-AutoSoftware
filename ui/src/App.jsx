@@ -47,73 +47,47 @@ function App() {
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [apiKey, setApiKey] = useState('');
     const [selectedModel, setSelectedModel] = useState('gemini-1.5-flash');
+    const [customModel, setCustomModel] = useState('');
 
     const GEMINI_MODELS = [
-        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (기본)' },
-        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (고성능)' },
-        { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Exp (최신)' },
-        { id: 'gemini-1.0-pro', name: 'Gemini 1.0 Pro (구버전)' }
+        { id: 'gemini-1.5-flash', name: 'Gemini 1.5 Flash (추천/안정)' },
+        { id: 'gemini-1.5-flash-8b', name: 'Gemini 1.5 Flash-8B (가장 빠름)' },
+        { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash (최신/실험)' },
+        { id: 'gemini-1.5-pro', name: 'Gemini 1.5 Pro (스마트/느림)' },
+        { id: 'custom', name: '직접 입력 (모델 ID)' }
     ];
 
     const generateWithAI = async () => {
         if (!aiPrompt) return alert("AI에게 요청할 내용을 입력해주세요!");
         if (!apiKey) return alert("Gemini API Key를 입력해주세요!");
 
+        const finalModel = selectedModel === 'custom' ? customModel : selectedModel;
+        if (selectedModel === 'custom' && !customModel) return alert("사용할 모델 ID를 입력해주세요!");
+
         setIsAiLoading(true);
         try {
-            const systemPrompt = `You are a professional Game System Designer. 
-            Your response MUST be a single, valid JSON object following this EXACT schema:
-            {
-              "type": "system_design",
-              "title": "Clear Title",
-              "summary": "Professional summary",
-              "rules": { "max_level": number, "success_rate": [{"level": number, "rate": number}] },
-              "costs": { "gold": number[], "material": string[] },
-              "exceptions": string[]
-            }
-            Output ONLY the JSON. No markdown backticks.`;
-
-            // Function to try the API call with different versions
-            const callGemini = async (apiVersion) => {
-                const url = `https://generativelanguage.googleapis.com/${apiVersion}/models/${selectedModel}:generateContent?key=${apiKey}`;
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: `${systemPrompt}\n\nUser Request: ${aiPrompt}` }] }]
-                    })
-                });
-                return res;
-            };
-
-            // 1. Try v1 first
-            let response = await callGemini('v1');
-
-            // 2. If 404, try v1beta as fallback
-            if (response.status === 404) {
-                console.log("v1 not found, trying v1beta...");
-                response = await callGemini('v1beta');
-            }
+            // Calling local backend proxy instead of direct Google API
+            const response = await fetch('/api/ai/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: aiPrompt,
+                    model: finalModel,
+                    api_key: apiKey
+                })
+            });
 
             const result = await response.json();
 
-            if (result.error) {
-                if (result.error.code === 403) throw new Error("API 키 권한이 없거나 차단되었습니다. (API 키 확인 필요)");
-                if (result.error.code === 404) throw new Error(`선택한 모델(${selectedModel})을 이 API 버전에서 찾을 수 없습니다.`);
-                throw new Error(`${result.error.status}: ${result.error.message}`);
+            if (result.status === "error") {
+                throw new Error(result.message);
             }
 
-            if (!result.candidates || result.candidates.length === 0) {
-                throw new Error("AI가 응답을 생성하지 못했습니다. (모델 가용성 또는 필터링 문제)");
-            }
-
-            const textResponse = result.candidates[0].content.parts[0].text;
-            const cleanedJson = textResponse.replace(/```json/g, '').replace(/```/g, '').trim();
-            setData(JSON.parse(cleanedJson));
-            alert(`✨ [${selectedModel}] 를 사용하여 기획서 초안 생성을 완료했습니다!`);
+            setData(result.data);
+            alert(`✨ [${result.model_used}] 을 통한 서버 사이드 기획 생성이 완료되었습니다!`);
         } catch (err) {
-            console.error(err);
-            alert(`AI 연동 에러: ${err.message}\n\n* API 키가 해당 모델을 지원하는지 확인해주세요.`);
+            console.error("AI Proxy Error:", err);
+            alert(`AI 연동 실패 (Server Proxy)\n------------------\n${err.message}`);
         } finally {
             setIsAiLoading(false);
         }
@@ -132,17 +106,27 @@ function App() {
             <div className="glass-card">
                 <h1>Spec-Auto Editor <span style={{ fontSize: '14px', color: '#60a5fa', verticalAlign: 'middle' }}>v3.0 AI</span></h1>
 
-                {/* AI Assistant Section (Advanced v3.1) */}
+                {/* AI Assistant Section (Universal v3.2) */}
                 <div style={{ background: 'rgba(96, 165, 250, 0.1)', padding: '16px', borderRadius: '12px', marginBottom: '24px', border: '1px solid rgba(96, 165, 250, 0.2)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                         <h3 style={{ margin: 0, fontSize: '16px', color: '#60a5fa' }}>🤖 AI 기획 비서 (Universal)</h3>
-                        <select
-                            value={selectedModel}
-                            onChange={(e) => setSelectedModel(e.target.value)}
-                            style={{ width: 'auto', padding: '4px 8px', fontSize: '12px', background: 'rgba(0,0,0,0.3)' }}
-                        >
-                            {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-                        </select>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            {selectedModel === 'custom' && (
+                                <input
+                                    placeholder="모델 ID (예: gemini-2.0-flash)"
+                                    value={customModel}
+                                    onChange={(e) => setCustomModel(e.target.value)}
+                                    style={{ width: '150px', padding: '4px 8px', fontSize: '11px', background: 'rgba(255,255,255,0.1)' }}
+                                />
+                            )}
+                            <select
+                                value={selectedModel}
+                                onChange={(e) => setSelectedModel(e.target.value)}
+                                style={{ width: 'auto', padding: '4px 8px', fontSize: '12px', background: 'rgba(0,0,0,0.3)' }}
+                            >
+                                {GEMINI_MODELS.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
+                            </select>
+                        </div>
                     </div>
 
                     <input
@@ -168,9 +152,28 @@ function App() {
                             {isAiLoading ? '생성 중...' : '기획 생성'}
                         </button>
                     </div>
-                    <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginTop: '8px' }}>
-                        * 모든 Gemini 버전 지원 / API 버전 자동 감지 (v1, v1beta)
-                    </p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                        <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', margin: 0 }}>
+                            * Gemini 1.5, 2.0 지원 / API 버전 자동 감지
+                        </p>
+                        <button
+                            onClick={async () => {
+                                if (!apiKey) return alert("API 키를 먼저 입력해주세요.");
+                                try {
+                                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+                                    const diagData = await res.json();
+                                    if (diagData.error) throw new Error(diagData.error.message);
+                                    const modelList = diagData.models.map(m => m.name.split('/').pop()).join(', ');
+                                    alert(`✅ 연결 성공! 사용 가능한 모델:\n${modelList}`);
+                                } catch (e) {
+                                    alert(`❌ 진단 실패: ${e.message}`);
+                                }
+                            }}
+                            style={{ width: 'auto', padding: '2px 8px', fontSize: '10px', background: 'rgba(255,255,255,0.1)', border: 'none' }}
+                        >
+                            API 진단
+                        </button>
+                    </div>
                 </div>
 
                 <label>제목</label>
