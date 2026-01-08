@@ -1,0 +1,23 @@
+# {{ title }}
+
+## 1. 개요
+{{ summary }}
+
+## 2. 규칙
+- **최대 레벨:** {{ rules.max_level }}
+
+### 2.1 성공 확률
+| 레벨 | 확률 |
+| :--- | :--- |
+{% for item in rules.success_rate -%}
+| {{ item.level }} | {{ (item.rate * 100)|int }}% |
+{% endfor %}
+
+## 3. 비용
+- **소모 골드:** {{ costs.gold | join(', ') }}
+- **필요 재료:** {{ costs.material | join(', ') }}
+
+## 4. 예외 사항
+{% for exception in exceptions -%}
+- {{ exception }}
+{% endfor %}
