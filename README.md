@@ -2,7 +2,7 @@
 
 Spec-Auto AI는 게임 기획자가 AI를 활용하여 복잡한 시스템 기획서를 작성하고, 이를 마크다운(Markdown), 워드(Docx), 엑셀(Excel) 등 다양한 형식의 기획 문서로 즉시 변환할 수 있도록 돕는 강력한 자동화 에디터입니다.
 
-## 🚀 주요 기능
+## 주요 기능
 
 ### 1. 지능형 AI 기획 비서 (Universal AI Assistant)
 *   **멀티 모델 지원:** Google Gemini (1.5 Flash, 1.5 Pro, 2.0 Flash) 및 로컬 환경의 Ollama(Llama3, Mytral 등)를 모두 지원합니다.
