@@ -2,6 +2,7 @@ import os
 import sys
 import webbrowser
 import json
+import requests
 from threading import Timer
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
@@ -27,42 +28,67 @@ def index():
 @app.route('/api/ai/generate', methods=['POST'])
 def ai_generate():
     data = request.json
-    api_key = data.get('api_key') or os.environ.get('GEMINI_API_KEY')
     model_name = data.get('model', 'gemini-1.5-flash')
     prompt = data.get('prompt')
+    
+    template_type = data.get('template_type', 'system_design')
+    
+    # Define Schema based on template
+    if template_type == 'event_planning':
+        schema = """{
+          "type": "event_planning",
+          "title": "Event Title",
+          "summary": "Event summary",
+          "rules": { "start_level": number, "end_date": "string" },
+          "costs": { "reward_items": string[] },
+          "exceptions": string[]
+        }"""
+    else:
+        schema = """{
+            "type": "system_design",
+            "title": "System Title",
+            "summary": "System summary",
+            "rules": { "max_level": number, "success_rate": [{"level": number, "rate": number}] },
+            "costs": { "gold": number[], "material": string[] },
+            "exceptions": string[]
+        }"""
+    
+    system_prompt = f"You are a professional Game System Designer. Output ONLY a valid JSON object matching this schema: {schema}"
+    full_prompt = f"{system_prompt}\n\nUser Request: {prompt}"
 
+    # --- OLLAMA LOGIC ---
+    if model_name == 'ollama':
+        ollama_url = data.get('ollama_url', 'http://localhost:11434')
+        ollama_model = data.get('ollama_model', 'llama3')
+        
+        try:
+            resp = requests.post(f"{ollama_url}/api/generate", json={
+                "model": ollama_model,
+                "prompt": full_prompt,
+                "stream": False,
+                "format": "json" 
+            })
+            resp.raise_for_status()
+            result = resp.json()
+            cleaned_json = result['response']
+            
+            return jsonify({
+                "status": "success", 
+                "data": json.loads(cleaned_json),
+                "model_used": f"ollama:{ollama_model}"
+            })
+        except Exception as e:
+            return jsonify({"status": "error", "message": f"Ollama Error: {str(e)}"}), 500
+
+    # --- GEMINI LOGIC ---
+    api_key = data.get('api_key') or os.environ.get('GEMINI_API_KEY')
     if not api_key:
         return jsonify({"status": "error", "message": "API Key가 필요합니다."}), 400
 
     try:
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name)
-        
-        template_type = data.get('template_type', 'system_design')
-        
-        # Adjust prompt schema based on template type
-        if template_type == 'event_planning':
-            schema = """{
-              "type": "event_planning",
-              "title": "Event Title",
-              "summary": "Event summary",
-              "rules": { "start_level": number, "end_date": "string" },
-              "costs": { "reward_items": string[] },
-              "exceptions": string[]
-            }"""
-        else:
-            schema = """{
-              "type": "system_design",
-              "title": "System Title",
-              "summary": "System summary",
-              "rules": { "max_level": number, "success_rate": [{"level": number, "rate": number}] },
-              "costs": { "gold": number[], "material": string[] },
-              "exceptions": string[]
-            }"""
-
-        system_prompt = f"You are a professional Game System Designer. Output ONLY a valid JSON object matching this schema: {schema}"
-        
-        response = model.generate_content(f"{system_prompt}\n\nUser Request: {prompt}")
+        response = model.generate_content(full_prompt)
         
         # Extract JSON from response
         text = response.text

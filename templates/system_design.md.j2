@@ -17,7 +17,26 @@
 - **소모 골드:** {{ costs.gold | join(', ') }}
 - **필요 재료:** {{ costs.material | join(', ') }}
 
+
 ## 4. 예외 사항
 {% for exception in exceptions -%}
 - {{ exception }}
 {% endfor %}
+
+
+{% if custom_sections %}
+## 5. 기타 설정 (Custom Sections)
+{% for section in custom_sections %}
+### {{ section.title }}
+{% if section.type == 'text' %}
+{{ section.content }}
+{% elif section.type == 'table' %}
+| 항목 | 내용 |
+| :--- | :--- |
+{% for row in section.content %}
+| {{ row.key }} | {{ row.value }} |
+{% endfor %}
+{% endif %}
+
+{% endfor %}
+{% endif %}
